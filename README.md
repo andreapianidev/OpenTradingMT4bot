@@ -296,6 +296,11 @@ The system includes AI-powered features through the DeepSeek API:
 ### Ottimizzazioni Cache
 - **Sistema di cache a due livelli**: Memoria (LRU) + Disco (JSON compresso)
 - **Compressione GZIP**: Riduce spazio su disco fino al 70-80% per risposte API lunghe
+- **Ottimizzazione delle chiavi di cache**:
+  - Normalizzazione: elimina duplicati dovuti a case, spazi o caratteri speciali
+  - Limitazione intelligente della lunghezza: tronca query lunghe mantenendo l'unicità
+  - Organizzazione gerarchica: struttura ottimizzata in sottodirectory per tipo
+  - Sharding dei file: distribuzione per evitare directory troppo popolate
 - **TTL differenziati per tipo di dato**:
   - Chat responses: 10 minuti
   - Notizie: 1 ora

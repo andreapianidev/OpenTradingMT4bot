@@ -27,6 +27,9 @@ from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 
+# Importa il gestore delle chiavi di cache
+from cache_key_manager import CacheKeyManager
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -58,6 +61,9 @@ COMPRESSION_ENABLED = True
 COMPRESSION_LEVEL = 6  # 0-9, where 9 is max compression (but slower)
 COMPRESSION_THRESHOLD = 1024  # Only compress items larger than this many bytes
 
+# Inizializza il gestore delle chiavi di cache
+cache_key_manager = CacheKeyManager(CACHE_DIR)
+
 # News API settings
 NEWS_API_KEY = os.environ.get("NEWS_API_KEY", "")
 NEWS_API_BASE = "https://newsapi.org/v2/everything"
@@ -73,6 +79,8 @@ API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
 API_BASE = os.environ.get("DEEPSEEK_API_BASE", "https://api.deepseek.com/v1")
 MODEL = os.environ.get("DEEPSEEK_MODEL", DEFAULT_MODEL)
 
+# Configura il logger anche per il cache key manager
+logging.getLogger('cache_key_manager').setLevel(logging.INFO)
 
 def _get_cache_path(cache_key: str, cache_type: str = "default") -> Path:
     """Get cache file path for a given key and type.
@@ -84,13 +92,8 @@ def _get_cache_path(cache_key: str, cache_type: str = "default") -> Path:
     Returns:
         Path object for the cache file
     """
-    # Create type-specific subdirectory
-    cache_subdir = CACHE_DIR / cache_type
-    cache_subdir.mkdir(exist_ok=True)
-    
-    # Use a hash of the cache_key to avoid file system issues
-    hashed_key = str(hash(cache_key))
-    return cache_subdir / f"{hashed_key}.cache.gz"
+    # Usa il gestore delle chiavi di cache per ottenere un percorso ottimizzato
+    return cache_key_manager.get_cache_path(cache_key, cache_type)
 
 
 def _clean_cache():
@@ -190,19 +193,22 @@ def _get_from_cache(cache_key: str, cache_type: str = "default") -> Optional[Any
     Returns:
         The cached data if found and valid, None otherwise
     """
+    # Normalizza la chiave per consistenza
+    normalized_key = cache_key_manager.normalize_key(cache_key)
+    
     # First check in-memory cache (fastest)
-    memory_key = f"{cache_type}:{cache_key}"
+    memory_key = f"{cache_type}:{normalized_key}"
     if memory_key in MEMORY_CACHE:
         cache_entry = MEMORY_CACHE[memory_key]
         # Check if in-memory cache has expired
         ttl = CACHE_TTL.get(cache_type, CACHE_TTL["default"])
         if time.time() - cache_entry['timestamp'] <= ttl:
-            logger.debug(f"Memory cache hit for {cache_type}:{cache_key}")
+            logger.debug(f"Memory cache hit for {cache_type}:{normalized_key}")
             return cache_entry['data']
         else:
             # Remove expired entry
             del MEMORY_CACHE[memory_key]
-            logger.debug(f"Memory cache expired for {cache_type}:{cache_key}")
+            logger.debug(f"Memory cache expired for {cache_type}:{normalized_key}")
     
     # Check disk cache
     cache_path = _get_cache_path(cache_key, cache_type)
@@ -258,8 +264,11 @@ def _save_to_cache(cache_key: str, data: Any, cache_type: str = "default") -> bo
     if data is None:
         return False
     
+    # Normalizza la chiave per consistenza
+    normalized_key = cache_key_manager.normalize_key(cache_key)
+    
     # Update memory cache
-    memory_key = f"{cache_type}:{cache_key}"
+    memory_key = f"{cache_type}:{normalized_key}"
     timestamp = time.time()
     MEMORY_CACHE[memory_key] = {
         'timestamp': timestamp,
@@ -291,7 +300,7 @@ def _save_to_cache(cache_key: str, data: Any, cache_type: str = "default") -> bo
             with gzip.open(cache_path, 'wt', encoding='utf-8', compresslevel=COMPRESSION_LEVEL) as f:
                 # We don't need indentation with compression to save space
                 f.write(json_data)
-                logger.debug(f"Compressed cache ({data_size} bytes) for {cache_type}:{cache_key}")
+                logger.debug(f"Compressed cache ({data_size} bytes) for {cache_type}:{normalized_key}")
         else:
             # For small data, we can use pretty printing for better readability if needed manually
             with gzip.open(cache_path, 'wt', encoding='utf-8', compresslevel=COMPRESSION_LEVEL) as f:
@@ -406,13 +415,14 @@ def news_bias(symbol: str, headlines: List[str], offline: bool = False) -> Tuple
         biases = ["bullish", "bearish", "neutral"]
         return (random.choice(biases), random.random())
     
-    # Cache key for this analysis
-    cache_key = f"news_bias_{symbol}_{','.join([h[:20] for h in headlines[:3]])}"
+    # Crea una chiave più efficiente basata su symbol e headlines
+    headlines_str = ",".join(headlines)
+    headlines_hash = cache_key_manager.get_query_hash(headlines_str)[:16]
+    cache_key = cache_key_manager.compose_key("news_bias", symbol, headlines_hash)
     
-    # Check cache with news-specific TTL
+    # Try to get from cache
     cached_result = _get_from_cache(cache_key, "news")
-    if cached_result:
-        logger.info(f"Using cached news bias for {symbol}")
+    if cached_result is not None:
         return cached_result
     
     try:
@@ -972,35 +982,98 @@ def get_cache_stats():
         "by_type": {}
     }
     
-    # Calculate disk usage
-    total_size = 0
-    by_type = {}
+    # Usa il gestore delle chiavi per generare statistiche dettagliate
+    key_stats = cache_key_manager.generate_key_stats()
     
-    for cache_type_dir in CACHE_DIR.iterdir():
-        if not cache_type_dir.is_dir():
-            continue
-            
-        cache_type = cache_type_dir.name
-        type_size = 0
-        type_count = 0
-        
-        for cache_file in cache_type_dir.iterdir():
-            if not cache_file.is_file():
-                continue
-                
-            type_size += cache_file.stat().st_size
-            type_count += 1
-            
-        by_type[cache_type] = {
-            "size_kb": type_size / 1024,
-            "count": type_count
-        }
-        total_size += type_size
+    # Calcola statistiche globali
+    total_size = 0
+    total_count = 0
+    
+    for cache_type, type_stats in key_stats.items():
+        total_size += type_stats["size_kb"] * 1024  # Converti KB in bytes
+        total_count += type_stats["count"]
     
     stats["disk_usage_mb"] = total_size / (1024 * 1024)
-    stats["by_type"] = by_type
+    stats["total_cache_files"] = total_count
+    stats["by_type"] = key_stats
     
     return stats
+
+
+def self_test():
+    """Run self-test to validate the module functionality."""
+    print("Running DeepSeek Utils self-test...")
+    
+    # Test cache key manager
+    print("\nTesting cache key manager:")
+    test_queries = [
+        "Una query normale per il test",
+        "QUERY CON MAIUSCOLE e spazi   multipli e caratteri speciali !@#$%^",
+        "Query molto lunga " + "con ripetizioni " * 20
+    ]
+    
+    for i, query in enumerate(test_queries):
+        print(f"\nOriginal query {i+1}: {query[:50]}..." if len(query) > 50 else f"\nOriginal query {i+1}: {query}")
+        
+        # Test normalizzazione
+        normalized = cache_key_manager.normalize_key(query)
+        print(f"Normalized: {normalized[:50]}..." if len(normalized) > 50 else f"Normalized: {normalized}")
+        
+        # Test creazione chiave per DeepSeek
+        key = cache_key_manager.create_query_key(query, "deepseek-chat", {"temperature": 0.7})
+        print(f"Cache key: {key[:50]}..." if len(key) > 50 else f"Cache key: {key}")
+        
+        # Test percorso file
+        path = cache_key_manager.get_cache_path(key, "chat")
+        print(f"Cache path: {path}")
+    
+    # Test cache compression
+    print("\nTesting cache compression:")
+    test_data = {
+        "large_text": "A" * 5000,  # Create data above compression threshold
+        "sample_values": list(range(100))
+    }
+    cache_key = "compression_test"
+    
+    # Save to cache
+    _save_to_cache(cache_key, test_data, "test")
+    
+    # Retrieve from cache
+    retrieved_data = _get_from_cache(cache_key, "test")
+    
+    if retrieved_data:
+        cache_path = _get_cache_path(cache_key, "test")
+        compressed_size = cache_path.stat().st_size if cache_path.exists() else 0
+        estimated_raw_size = len(json.dumps(test_data).encode('utf-8'))
+        compression_ratio = estimated_raw_size / compressed_size if compressed_size > 0 else 0
+        print(f"Cache compression test successful! Ratio: {compression_ratio:.2f}x")
+        print(f"Raw size: {estimated_raw_size} bytes, Compressed: {compressed_size} bytes")
+    else:
+        print("Cache test failed!")
+        
+    # Test integrazione completa
+    print("\nTesting full integration:")
+    test_prompt = "What is the current market outlook for gold?"
+    test_messages = [
+        {"role": "system", "content": "You are a helpful assistant for trading."},
+        {"role": "user", "content": test_prompt}
+    ]
+    offline_response = deepseek_chat(test_messages, offline=True, cache_type="test")
+    if offline_response is None or offline_response.startswith("Sorry"):
+        print("Cache miss - not found in cache (expected for first run)")
+        # Salva un test nella cache
+        test_key = cache_key_manager.create_query_key(test_prompt, "deepseek-chat", {"temperature": 0.3})
+        _save_to_cache(test_key, "This is a test response for caching.", "test")
+        
+        # Prova nuovamente
+        offline_response = deepseek_chat(test_messages, offline=True, cache_type="test")
+        if offline_response and not offline_response.startswith("Sorry"):
+            print("Cache hit after manual save - integration successful!")
+        else:
+            print("Cache integration test failed!")
+    else:
+        print("Cache hit - found in cache!")
+        print(f"Response: {offline_response[:50]}..." if len(offline_response) > 50 else f"Response: {offline_response}")
 
 
 if __name__ == "__main__":
@@ -1014,6 +1087,7 @@ if __name__ == "__main__":
     parser.add_argument("--compress", type=int, choices=range(0, 10), default=COMPRESSION_LEVEL, 
                       help="Set compression level (0-9, where 9 is max compression)")
     parser.add_argument("--nocompress", action="store_true", help="Disable compression")
+    parser.add_argument("--cache-stats", action="store_true", help="Show cache statistics")
     
     args = parser.parse_args()
     
@@ -1024,6 +1098,18 @@ if __name__ == "__main__":
     else:
         COMPRESSION_LEVEL = args.compress
         print(f"Cache compression level set to {COMPRESSION_LEVEL}")
+        
+    # Mostra statistiche della cache se richiesto
+    if args.cache_stats:
+        print("\nCache Statistics:")
+        stats = get_cache_stats()
+        print(f"Memory cache: {stats['memory_items']}/{stats['memory_limit']} items")
+        print(f"Disk usage: {stats['disk_usage_mb']:.2f} MB / {stats['disk_limit_mb']} MB limit")
+        print(f"Compression: {'Enabled' if stats['compression_enabled'] else 'Disabled'} (level {stats['compression_level']})")
+        
+        print("\nBy cache type:")
+        for cache_type, type_stats in stats['by_type'].items():
+            print(f"  {cache_type}: {type_stats['count']} files, {type_stats['size_kb']:.2f} KB total")
     
     if args.news:
         print(f"Fetching news for {args.news}...")
