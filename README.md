@@ -252,28 +252,51 @@ Utilizza lo script interattivo di controllo per avviare tutti i componenti Pytho
 ## File Structure
 
 ```
-/OpenMT4TradingBot/
-  ├─ mql4/
-  │   └─ OpenMT4TradingBot.mq4
-  ├─ python/
-  │   ├─ signal_engine.py
-  │   ├─ deepseek_utils.py
-  │   ├─ chat_interface.py
-  │   ├─ charting_utils.py
-  │   ├─ requirements.txt
-  │   └─ setup.py
-  ├─ data/
-  │   ├─ cot.csv
-  │   └─ season.json
-  ├─ logs/
-  │   ├─ signal_engine.log
-  │   ├─ chat_interface.log
-  │   └─ web_interface.log
-  ├─ install_python.sh
-  ├─ start_trading_bot.sh
-  ├─ .env
-  ├─ .gitignore
-  └─ README.md
+/OpenMT4TradingBot/              # Directory principale del progetto
+  ├─ mql4/                     # Componenti MetaTrader 4
+  │   └─ OpenMT4TradingBot.mq4 # Expert Advisor MT4 per l'esecuzione dei segnali di trading
+  ├─ python/                   # Componenti Python del sistema
+  │   ├─ signal_engine.py      # Motore principale per il calcolo dei segnali di trading
+  │   ├─ deepseek_utils.py     # Utilities per l'integrazione con l'API DeepSeek
+  │   ├─ chat_interface.py     # Interfaccia a riga di comando per comunicare con l'AI
+  │   ├─ charting_utils.py     # Utilities per la generazione di grafici interattivi
+  │   ├─ api_server.py         # Server API FastAPI per la comunicazione con la dashboard React
+  │   ├─ requirements.txt      # Elenco delle dipendenze Python richieste
+  │   └─ setup.py              # Script di configurazione per l'installazione
+  ├─ web-dashboard/            # Interfaccia utente moderna basata su React
+  │   ├─ package.json           # Configurazione del progetto React e dipendenze
+  │   ├─ src/                   # Codice sorgente dell'applicazione React
+  │   │   ├─ components/         # Componenti React modulari
+  │   │   │   ├─ Dashboard.jsx     # Componente principale che organizza l'interfaccia
+  │   │   │   ├─ TradingChart.jsx  # Grafico interattivo per visualizzare dati OHLC e segnali
+  │   │   │   ├─ ApiUsageMonitor.jsx # Monitoraggio dell'utilizzo dell'API DeepSeek
+  │   │   │   ├─ MarketOverview.jsx # Panoramica dei mercati con stato e filtri attivi
+  │   │   │   ├─ SignalsTable.jsx   # Tabella dei segnali di trading con filtri
+  │   │   │   └─ BotControls.jsx   # Controlli per avviare/fermare il bot e modificare le impostazioni
+  │   │   ├─ pages/               # Pagine dell'applicazione React
+  │   │   │   └─ index.jsx         # Pagina principale che carica il Dashboard
+  │   │   ├─ styles/              # Fogli di stile CSS
+  │   │   │   └─ styles.css        # Stile globale dell'applicazione
+  │   │   ├─ api/                 # Funzioni per le chiamate API al backend
+  │   │   ├─ hooks/               # Hook React personalizzati
+  │   │   └─ utils/               # Funzioni di utilità condivise
+  │   ├─ public/                # File statici pubblici (favicon, immagini, ecc.)
+  │   └─ node_modules/          # Dipendenze JavaScript installate (generato automaticamente)
+  ├─ data/                     # Dati utilizzati dal sistema
+  │   ├─ cot.csv                # Dati COT (Commitment of Traders)
+  │   ├─ season.json            # Configurazione della stagionalità per i vari mercati
+  │   └─ signals.json           # File di output con i segnali di trading generati
+  ├─ logs/                     # Directory per i file di log
+  │   ├─ signal_engine.log      # Log del motore di segnali
+  │   ├─ chat_interface.log     # Log dell'interfaccia chat
+  │   ├─ api_server.log         # Log del server API
+  │   └─ react_interface.log    # Log dell'interfaccia React
+  ├─ install_python.sh         # Script per l'installazione dell'ambiente Python
+  ├─ start_trading_bot.sh      # Script per avviare e gestire i componenti del trading bot
+  ├─ start_dashboard.sh        # Script per avviare la dashboard React e il server API
+  ├─ .env                      # File di configurazione per le variabili d'ambiente (API key)
+  ├─ .gitignore                # Configurazione per escludere file dal controllo versione
+  └─ README.md                # Documentazione del progetto
 ```
 
 ## Strategy Details
