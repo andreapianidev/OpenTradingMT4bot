@@ -49,6 +49,11 @@ extern string  FilePath = "OpenMT4TradingBot"; // Path for file operations
 int lastSignalCheck = 0;
 int lastBarCount = 0;
 string signalFile = "signal.json";
+
+// Error handling settings
+extern bool   DetailedErrorLogging = true;  // Enable detailed error logging
+extern int    MaxRetryAttempts = 3;        // Maximum retry attempts for trading operations
+extern int    RetryDelayMilliseconds = 500; // Delay between retry attempts
 string positionFile = "positions.json";
 datetime lastSignalTimestamp = 0;
 
@@ -225,16 +230,29 @@ string ExtractJsonValue(string json, string key)
    // Value is a number or boolean
    else
    {
-      int end = StringFind(json, ",", start);
-      if(end == -1) end = StringFind(json, "}", start);
-      return StringSubstr(json, start, end - start);
+      int endPos = StringFind(json, ",", start);
+      if(endPos == -1) 
+      {
+         endPos = StringFind(json, "}", start);
+      }
+
+      // If no valid delimiter is found, or if it's before the start position
+      if(endPos == -1 || endPos < start)
+      {
+         PrintFormat("ParseJsonValue Error: Could not find valid delimiter near '%s'. Start: %d, EndPos: %d", StringSubstr(json, MathMax(0,start-10), 20), start, endPos);
+         return ""; // Return empty or handle error appropriately
+      }
+      
+      int length = endPos - start;
+      // Length should not be negative if endPos >= start, which is ensured by the check above.
+      return StringSubstr(json, start, length);
    }
 }
 
 //+------------------------------------------------------------------+
 //| Open new trade based on signal                                   |
 //+------------------------------------------------------------------+
-void OpenTrade(int type, double entry, double sl, double tp, double lot)
+bool OpenTrade(int type, double entry, double sl, double tp, double lot)
 {
    // Calculate lot size if auto-calculation is enabled
    if(Lots <= 0 && RiskPercent > 0)
@@ -256,12 +274,51 @@ void OpenTrade(int type, double entry, double sl, double tp, double lot)
    
    if(ticket > 0)
    {
-      Print("Trade opened: ", Symbol(), " ", (type == OP_BUY ? "BUY" : "SELL"), 
+      Print("✅ Trade opened: ", Symbol(), " ", (type == OP_BUY ? "BUY" : "SELL"), 
             " Lot: ", lot, " SL: ", sl, " TP: ", tp);
+      return true;
    }
    else
    {
-      Print("Error opening trade: ", GetLastError());
+      int errorCode = GetLastError();
+      string errorDescription = GetErrorDescription(errorCode);
+      LogError("OpenTrade", errorCode);
+      
+      // Retry logic for recoverable errors
+      if(IsRecoverableError(errorCode) && MaxRetryAttempts > 0)
+      {
+         for(int attempt = 1; attempt <= MaxRetryAttempts; attempt++)
+         {
+            Print("Retrying trade operation (attempt ", attempt, " of ", MaxRetryAttempts, ")...");
+            Sleep(RetryDelayMilliseconds); // Wait before retry
+            
+            double price; // Declare price here
+            RefreshRates(); // Get fresh rates
+            
+            // Recalculate entry price based on current market
+            if(type == OP_BUY)
+               price = Ask;
+            else
+               price = Bid;
+               
+            ticket = OrderSend(Symbol(), type, lot, price, 3, sl, tp, "OpenMT4TradingBot", MagicNumber, 0, (type == OP_BUY ? clrGreen : clrRed));
+            
+            if(ticket > 0)
+            {
+               Print("(OK) Trade opened on retry ", attempt, ": ", Symbol(), " ", 
+                     (type == OP_BUY ? "BUY" : "SELL"), 
+                     " Lot: ", lot, " SL: ", sl, " TP: ", tp);
+               return true;
+            }
+            
+            errorCode = GetLastError();
+            Print("Retry ", attempt, " failed: ", errorCode, " - ", GetErrorDescription(errorCode));
+         }
+         
+         Print("❌ All retry attempts failed for ", Symbol(), " ", (type == OP_BUY ? "BUY" : "SELL"));
+      }
+      
+      return false;
    }
 }
 
@@ -283,7 +340,39 @@ void ClosePositionsForSymbol()
                result = OrderClose(OrderTicket(), OrderLots(), Ask, 3, clrGreen);
                
             if(!result)
-               Print("Error closing order: ", GetLastError());
+            {
+               int errorCode = GetLastError();
+               LogError("ClosePosition #" + IntegerToString(OrderTicket()), errorCode);
+               
+               // Retry logic for closing positions
+               if(IsRecoverableError(errorCode) && MaxRetryAttempts > 0)
+               {
+                  for(int attempt = 1; attempt <= MaxRetryAttempts; attempt++)
+                  {
+                     Print("Retrying close operation (attempt ", attempt, " of ", MaxRetryAttempts, ")...");
+                     Sleep(RetryDelayMilliseconds);
+                     RefreshRates();
+                     
+                     if(OrderType() == OP_BUY)
+                        result = OrderClose(OrderTicket(), OrderLots(), Bid, 3, clrRed);
+                     else if(OrderType() == OP_SELL)
+                        result = OrderClose(OrderTicket(), OrderLots(), Ask, 3, clrGreen);
+                        
+                     if(result)
+                     {
+                        Print("✅ Order #", OrderTicket(), " closed successfully on retry ", attempt);
+                        break;
+                     }
+                     
+                     errorCode = GetLastError();
+                     Print("Retry ", attempt, " failed: ", errorCode, " - ", GetErrorDescription(errorCode));
+                  }
+               }
+            }
+            else
+            {
+               Print("✅ Order #", OrderTicket(), " closed successfully");
+            }
          }
       }
    }
@@ -295,6 +384,12 @@ void ClosePositionsForSymbol()
 void TrailStop()
 {
    double atr = iATR(Symbol(), PERIOD_D1, 20, 1);
+   
+   if(atr == 0)
+   {
+      Print("⚠️ Warning: ATR returned zero value. Using default value instead.");
+      atr = Point * 1000; // Usa un valore di fallback basato sui punti
+   }
    
    for(int i = 0; i < OrdersTotal(); i++)
    {
@@ -327,13 +422,134 @@ void TrailStop()
             if(modify)
             {
                bool result = OrderModify(OrderTicket(), OrderOpenPrice(), newStopLoss, OrderTakeProfit(), 0, clrBlue);
-               if(!result)
-                  Print("Error modifying trailing stop: ", GetLastError());
-               else
-                  Print("Trailing stop updated for ", Symbol(), " to ", newStopLoss);
+                if(!result)
+                {
+                   int errorCode = GetLastError();
+                   LogError("TrailingStop #" + IntegerToString(OrderTicket()), errorCode);
+                   
+                   // Retry logic for modifying orders
+                   if(IsRecoverableError(errorCode) && MaxRetryAttempts > 0)
+                   {
+                      for(int attempt = 1; attempt <= MaxRetryAttempts; attempt++)
+                      {
+                         Print("Retrying modify operation (attempt ", attempt, " of ", MaxRetryAttempts, ")...");
+                         Sleep(RetryDelayMilliseconds);
+                         RefreshRates();
+                         
+                         result = OrderModify(OrderTicket(), OrderOpenPrice(), newStopLoss, OrderTakeProfit(), 0, clrBlue);
+                         
+                         if(result)
+                         {
+                            Print("✅ Trailing stop updated for #", OrderTicket(), " to ", newStopLoss, " on retry ", attempt);
+                            break;
+                         }
+                         
+                         errorCode = GetLastError();
+                         Print("Retry ", attempt, " failed: ", errorCode, " - ", GetErrorDescription(errorCode));
+                      }
+                   }
+                }
+                else
+                {
+                   Print("✅ Trailing stop updated for #", OrderTicket(), " from ", OrderStopLoss(), " to ", newStopLoss);
+                }
             }
          }
       }
+   }
+}
+
+//+------------------------------------------------------------------+
+//| Get detailed description for MT4 error code                     |
+//+------------------------------------------------------------------+
+string GetErrorDescription(int errorCode)
+{
+   string errorDescription = "";
+   
+      // Common errors
+   if(errorCode == 0) errorDescription = "No error";
+   else if(errorCode == 1) errorDescription = "No error, but the result is unknown";
+   else if(errorCode == 2) errorDescription = "Common error";
+   else if(errorCode == 3) errorDescription = "Invalid trade parameters";
+   else if(errorCode == 4) errorDescription = "Trade server is busy";
+   else if(errorCode == 5) errorDescription = "Old version of the client terminal";
+   else if(errorCode == 6) errorDescription = "No connection with trade server";
+   else if(errorCode == 7) errorDescription = "Not enough rights";
+   else if(errorCode == 8) errorDescription = "Too frequent requests";
+   else if(errorCode == 9) errorDescription = "Malfunctional trade operation";
+   else if(errorCode == 64) errorDescription = "Account disabled";
+   else if(errorCode == 65) errorDescription = "Invalid account";
+   
+   // Trade errors
+   else if(errorCode == 128) errorDescription = "Trade timeout";
+   else if(errorCode == 129) errorDescription = "Invalid price";
+   else if(errorCode == 130) errorDescription = "Invalid stops";
+   else if(errorCode == 131) errorDescription = "Invalid trade volume";
+   else if(errorCode == 132) errorDescription = "Market is closed";
+   else if(errorCode == 133) errorDescription = "Trade is disabled";
+   else if(errorCode == 134) errorDescription = "Not enough money";
+   else if(errorCode == 135) errorDescription = "Price changed";
+   else if(errorCode == 136) errorDescription = "Off quotes";
+   else if(errorCode == 137) errorDescription = "Broker is busy";
+   else if(errorCode == 138) errorDescription = "Requote";
+   else if(errorCode == 139) errorDescription = "Order is locked";
+   else if(errorCode == 140) errorDescription = "Long positions only allowed";
+   else if(errorCode == 141) errorDescription = "Too many requests";
+   else if(errorCode == 145) errorDescription = "Modification denied because order too close to market";
+   else if(errorCode == 146) errorDescription = "Trade context is busy";
+   else if(errorCode == 147) errorDescription = "Expirations are denied by broker";
+   
+   // Default case
+   else errorDescription = "Unknown error";
+   return errorDescription;
+}
+
+//+------------------------------------------------------------------+
+//| Determine if an error is potentially recoverable with retry      |
+//+------------------------------------------------------------------+
+bool IsRecoverableError(int errorCode)
+{
+      // Potentially recoverable errors
+   if(errorCode == 4   // Trade server is busy
+      || errorCode == 6   // No connection with trade server
+      || errorCode == 8   // Too frequent requests
+      || errorCode == 128 // Trade timeout
+      || errorCode == 135 // Price changed
+      || errorCode == 136 // Off quotes
+      || errorCode == 137 // Broker is busy
+      || errorCode == 138 // Requote
+      || errorCode == 141 // Too many requests
+      || errorCode == 146) // Trade context is busy
+   {
+      return true;
+   }
+   
+   return false;
+}
+
+//+------------------------------------------------------------------+
+//| Log detailed error information                                   |
+//+------------------------------------------------------------------+
+void LogError(string operation, int errorCode)
+{
+   string errorDescription = GetErrorDescription(errorCode);
+   bool isRecoverable = IsRecoverableError(errorCode);
+   
+   if(DetailedErrorLogging)
+   {
+      Print("❌ ERROR DETAILS:");
+      Print("   Operation: ", operation);
+      Print("   Symbol: ", Symbol());
+      Print("   Error Code: ", errorCode);
+      Print("   Description: ", errorDescription);
+      Print("   Recoverable: ", (isRecoverable ? "YES" : "NO"));
+      Print("   Server Time: ", TimeToStr(TimeCurrent(), TIME_DATE|TIME_SECONDS));
+      Print("   Account: ", AccountNumber(), " (", AccountCompany(), ")");
+      Print("   Balance/Equity: ", AccountBalance(), "/", AccountEquity());
+   }
+   else
+   {
+      Print("❌ Error ", errorCode, " during ", operation, ": ", errorDescription);
    }
 }
 
