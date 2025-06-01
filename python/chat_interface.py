@@ -22,6 +22,9 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List
 import pandas as pd
 from datetime import datetime
+import webbrowser
+import tempfile
+from charting_utils import get_commodity_data, plot_candlestick_chart
 
 # Try importing FastAPI related modules
 try:
@@ -275,6 +278,17 @@ class ConversationManager:
         elif command in ["help", "aiuto"]:
             return "help", {}
             
+        elif command in ["chart", "grafico"]:
+            # /chart SIMBOLO [periodo] [intervallo]
+            # es. /chart XAUUSD 6mo 1d
+            parts_args = args.split()
+            symbol = parts_args[0].upper() if len(parts_args) > 0 else self.detect_symbol(question)
+            period = parts_args[1] if len(parts_args) > 1 else "1y"
+            interval = parts_args[2] if len(parts_args) > 2 else "1d"
+            if not symbol: # Se non riesce a rilevarlo e non è specificato
+                 return "chart_error", {"message": "Per favore, specifica un simbolo per il grafico o discuti di un simbolo prima."}
+            return "chart", {"symbol": symbol, "period": period, "interval": interval}
+            
         # Not a recognized command
         return None, None
 
@@ -389,6 +403,37 @@ def ask_question(question: str, refresh: bool = False) -> str:
                         answer += f"- **{item['title']}** ({item['date']})\n  {item['url']}\n\n"
                 else:
                     answer += "Nessuna notizia trovata."
+
+            elif command == "chart":
+                symbol = params.get("symbol")
+                period = params.get("period")
+                interval = params.get("interval")
+                
+                logger.info(f"Generating chart for {symbol} (period: {period}, interval: {interval})...")
+                
+                data = get_commodity_data(symbol, period=period, interval=interval)
+                
+                if data is not None and not data.empty:
+                    fig = plot_candlestick_chart(data, symbol_display=symbol)
+                    
+                    # Salva il grafico in un file HTML temporaneo
+                    # Usiamo delete=False così il file persiste finché il browser lo legge
+                    with tempfile.NamedTemporaryFile(mode="w", suffix=".html", delete=False, encoding='utf-8') as tmp_file:
+                        fig.write_html(tmp_file.name)
+                        chart_file_path = tmp_file.name
+                    
+                    try:
+                        # Usa Path per costruire un URI file:// corretto per tutti i sistemi operativi
+                        webbrowser.open_new_tab(Path(chart_file_path).resolve().as_uri())
+                        answer = f"Il grafico per {symbol} (periodo: {period}, intervallo: {interval}) è stato generato e aperto nel tuo browser."
+                    except Exception as e:
+                        logger.error(f"Errore nell'aprire il grafico nel browser: {e}")
+                        answer = f"Non è stato possibile aprire il grafico nel browser, ma è stato salvato in: {chart_file_path}"
+                else:
+                    answer = f"Non è stato possibile recuperare i dati per generare il grafico per {symbol} (periodo: {period}, intervallo: {interval})."
+
+            elif command == "chart_error":
+                answer = params.get("message", "Errore sconosciuto nella generazione del grafico.")
                 
             elif command == "help":
                 answer = """## Comandi disponibili:
@@ -398,6 +443,7 @@ def ask_question(question: str, refresh: bool = False) -> str:
 /optimize - Ottimizza il portafoglio corrente
 /scenarios - Esegue un'analisi di scenario per il portafoglio
 /news [symbol] - Mostra le ultime notizie per un simbolo
+/chart <symbol> [period] [interval] - Genera un grafico interattivo per un simbolo (es. /chart XAUUSD 6mo 1d)
 /risk - Mostra il profilo di rischio corrente
 
 Puoi anche fare domande in linguaggio naturale come:
