@@ -15,6 +15,7 @@ Copyright (c) 2025 Immaginet Srl
 import os
 import time
 import json
+import gzip
 import random
 import logging
 import requests
@@ -52,6 +53,11 @@ CACHE_TTL = {
 MAX_MEMORY_CACHE_ITEMS = 100
 MAX_DISK_CACHE_SIZE_MB = 100
 
+# Compression settings
+COMPRESSION_ENABLED = True
+COMPRESSION_LEVEL = 6  # 0-9, where 9 is max compression (but slower)
+COMPRESSION_THRESHOLD = 1024  # Only compress items larger than this many bytes
+
 # News API settings
 NEWS_API_KEY = os.environ.get("NEWS_API_KEY", "")
 NEWS_API_BASE = "https://newsapi.org/v2/everything"
@@ -84,7 +90,7 @@ def _get_cache_path(cache_key: str, cache_type: str = "default") -> Path:
     
     # Use a hash of the cache_key to avoid file system issues
     hashed_key = str(hash(cache_key))
-    return cache_subdir / f"{hashed_key}.cache"
+    return cache_subdir / f"{hashed_key}.cache.gz"
 
 
 def _clean_cache():
@@ -130,13 +136,46 @@ def _clean_cache():
                 file_info.sort(key=lambda x: x[1], reverse=True)
                 
                 # Delete oldest files until we're under the limit
+                deleted_count = 0
+                freed_space = 0
                 for file_path, _, file_size in file_info:
                     if total_size <= max_size_bytes:
                         break
                     file_path.unlink(missing_ok=True)
                     total_size -= file_size
+                    deleted_count += 1
+                    freed_space += file_size
                     
-                logger.info(f"Cache cleanup completed. New size: {total_size / (1024*1024):.2f} MB")
+                logger.info(f"Cache cleanup completed. Deleted {deleted_count} files, freed {freed_space/1024:.1f} KB. New size: {total_size/(1024*1024):.2f} MB")
+                
+                # Re-compress large files if we're still over the limit
+                if total_size > max_size_bytes * 0.9 and COMPRESSION_ENABLED:
+                    # Get uncompressed files or files compressed at lower levels
+                    for cache_type_dir in CACHE_DIR.iterdir():
+                        if not cache_type_dir.is_dir():
+                            continue
+                            
+                        for cache_file in cache_type_dir.iterdir():
+                            if not cache_file.is_file() or not cache_file.name.endswith('.cache.gz'):
+                                continue
+                                
+                            # Try to recompress with higher compression level
+                            try:
+                                # Read the current compressed data
+                                with gzip.open(cache_file, 'rt', encoding='utf-8') as f:
+                                    data = json.load(f)
+                                    
+                                # Recompress with maximum compression level
+                                with gzip.open(cache_file, 'wt', encoding='utf-8', compresslevel=9) as f:
+                                    f.write(json.dumps(data))
+                                    
+                                logger.debug(f"Recompressed {cache_file} with max compression")
+                            except Exception as e:
+                                logger.warning(f"Failed to recompress {cache_file}: {e}")
+                    
+                    # Calculate new size
+                    new_total_size = sum(f.stat().st_size for f in Path(CACHE_DIR).glob('**/*') if f.is_file())
+                    logger.info(f"After recompression: {new_total_size/(1024*1024):.2f} MB")
                 
         except Exception as e:
             logger.warning(f"Cache cleanup failed: {e}")
@@ -151,7 +190,7 @@ def _get_from_cache(cache_key: str, cache_type: str = "default") -> Optional[Any
     Returns:
         The cached data if found and valid, None otherwise
     """
-    # First check in-memory cache
+    # First check in-memory cache (fastest)
     memory_key = f"{cache_type}:{cache_key}"
     if memory_key in MEMORY_CACHE:
         cache_entry = MEMORY_CACHE[memory_key]
@@ -163,6 +202,7 @@ def _get_from_cache(cache_key: str, cache_type: str = "default") -> Optional[Any
         else:
             # Remove expired entry
             del MEMORY_CACHE[memory_key]
+            logger.debug(f"Memory cache expired for {cache_type}:{cache_key}")
     
     # Check disk cache
     cache_path = _get_cache_path(cache_key, cache_type)
@@ -171,7 +211,8 @@ def _get_from_cache(cache_key: str, cache_type: str = "default") -> Optional[Any
         return None
         
     try:
-        with open(cache_path, 'rb') as f:
+        # Read compressed data and decompress
+        with gzip.open(cache_path, 'rt', encoding='utf-8') as f:
             cached_data = json.load(f)
             
         # Check if cache has expired
@@ -213,6 +254,10 @@ def _save_to_cache(cache_key: str, data: Any, cache_type: str = "default") -> bo
     # Occasionally clean the cache
     _clean_cache()
     
+    # Skip caching if data is None
+    if data is None:
+        return False
+    
     # Update memory cache
     memory_key = f"{cache_type}:{cache_key}"
     timestamp = time.time()
@@ -231,12 +276,27 @@ def _save_to_cache(cache_key: str, data: Any, cache_type: str = "default") -> bo
     cache_path = _get_cache_path(cache_key, cache_type)
     
     try:
-        # Use JSON for better security and interoperability compared to pickle
-        with open(cache_path, 'w') as f:
-            json.dump({
-                'timestamp': timestamp,
-                'data': data
-            }, f, indent=2)
+        # Prepare the data to be cached
+        cache_data = {
+            'timestamp': timestamp,
+            'data': data
+        }
+        
+        # Convert to JSON string first to determine size
+        json_data = json.dumps(cache_data)
+        data_size = len(json_data.encode('utf-8'))
+        
+        # Use compression for data over the threshold size
+        if COMPRESSION_ENABLED and data_size > COMPRESSION_THRESHOLD:
+            with gzip.open(cache_path, 'wt', encoding='utf-8', compresslevel=COMPRESSION_LEVEL) as f:
+                # We don't need indentation with compression to save space
+                f.write(json_data)
+                logger.debug(f"Compressed cache ({data_size} bytes) for {cache_type}:{cache_key}")
+        else:
+            # For small data, we can use pretty printing for better readability if needed manually
+            with gzip.open(cache_path, 'wt', encoding='utf-8', compresslevel=COMPRESSION_LEVEL) as f:
+                json.dump(cache_data, f, indent=2)
+                
         return True
     except Exception as e:
         logger.warning(f"Failed to write to cache: {e}")
@@ -896,6 +956,53 @@ def calculate_rsi(series, period=14):
     return rsi
 
 
+def get_cache_stats():
+    """Get statistics about the cache usage.
+    
+    Returns:
+        Dict with cache statistics
+    """
+    stats = {
+        "memory_items": len(MEMORY_CACHE),
+        "memory_limit": MAX_MEMORY_CACHE_ITEMS,
+        "disk_usage_mb": 0,
+        "disk_limit_mb": MAX_DISK_CACHE_SIZE_MB,
+        "compression_enabled": COMPRESSION_ENABLED,
+        "compression_level": COMPRESSION_LEVEL,
+        "by_type": {}
+    }
+    
+    # Calculate disk usage
+    total_size = 0
+    by_type = {}
+    
+    for cache_type_dir in CACHE_DIR.iterdir():
+        if not cache_type_dir.is_dir():
+            continue
+            
+        cache_type = cache_type_dir.name
+        type_size = 0
+        type_count = 0
+        
+        for cache_file in cache_type_dir.iterdir():
+            if not cache_file.is_file():
+                continue
+                
+            type_size += cache_file.stat().st_size
+            type_count += 1
+            
+        by_type[cache_type] = {
+            "size_kb": type_size / 1024,
+            "count": type_count
+        }
+        total_size += type_size
+    
+    stats["disk_usage_mb"] = total_size / (1024 * 1024)
+    stats["by_type"] = by_type
+    
+    return stats
+
+
 if __name__ == "__main__":
     import argparse
     
@@ -904,8 +1011,19 @@ if __name__ == "__main__":
     parser.add_argument("--offline", action="store_true", help="Run in offline mode")
     parser.add_argument("--news", type=str, help="Fetch news for symbol (e.g., XAUUSD)")
     parser.add_argument("--analyze", type=str, help="Run market analysis for symbol")
+    parser.add_argument("--compress", type=int, choices=range(0, 10), default=COMPRESSION_LEVEL, 
+                      help="Set compression level (0-9, where 9 is max compression)")
+    parser.add_argument("--nocompress", action="store_true", help="Disable compression")
     
     args = parser.parse_args()
+    
+    # Handle compression settings
+    if args.nocompress:
+        COMPRESSION_ENABLED = False
+        print("Cache compression disabled")
+    else:
+        COMPRESSION_LEVEL = args.compress
+        print(f"Cache compression level set to {COMPRESSION_LEVEL}")
     
     if args.news:
         print(f"Fetching news for {args.news}...")

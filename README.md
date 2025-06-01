@@ -139,7 +139,7 @@ OpenMT4TradingBot implements a sophisticated multi-factor trading approach desig
    
    Oppure installa i pacchetti singolarmente:
    ```bash
-   pip install pandas numpy requests schedule pyarrow python-dotenv
+   pip install pandas numpy requests schedule pyarrow python-dotenv gzip
    ```
 
 2. Per l'interfaccia utente migliorata:
@@ -188,6 +188,8 @@ OpenMT4TradingBot implements a sophisticated multi-factor trading approach desig
    --backtest          Esegui backtest
    --update-cot        Aggiorna i dati COT ed esci
    --use-deepseek      Abilita l'integrazione con DeepSeek
+   --compress=N        Imposta livello compressione cache (0-9, default: 6)
+   --nocompress        Disabilita la compressione della cache
    ```
 
 ### Utilizzo dell'interfaccia chat
@@ -289,7 +291,19 @@ The system includes AI-powered features through the DeepSeek API:
 ### API Key Security
 - Store your DeepSeek API key in the `.env` file
 - This file is excluded from Git to prevent accidental exposure
-- Token usage is optimized with caching (TTL: 300 seconds)
+- Token usage is optimized with advanced caching system
+
+### Ottimizzazioni Cache
+- **Sistema di cache a due livelli**: Memoria (LRU) + Disco (JSON compresso)
+- **Compressione GZIP**: Riduce spazio su disco fino al 70-80% per risposte API lunghe
+- **TTL differenziati per tipo di dato**:
+  - Chat responses: 10 minuti
+  - Notizie: 1 ora
+  - Analisi di mercato: 30 minuti
+  - Riconoscimento pattern: 1 ora
+  - Ottimizzazione portfolio: 20 minuti
+  - Analisi di scenario: 30 minuti
+- **Gestione automatica dello spazio**: Pulizia file scaduti e compressione adattiva quando lo spazio scarseggia
 
 ## Testing
 
@@ -315,6 +329,8 @@ python signal_engine.py --backtest
 - Add portfolio-level risk management
 - Support for more trading instruments
 - Add unit tests for all components
+- Implement distributed cache for multi-instance deployments
+- Add cache metrics dashboard for performance monitoring
 
 ## License
 
