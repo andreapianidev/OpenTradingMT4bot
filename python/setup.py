@@ -11,8 +11,8 @@ setup(
     name="OpenMT4TradingBot",
     version="1.0.0",
     description="Python components for OpenMT4TradingBot - a hybrid MT4 + Python trading system",
-    author="Immaginet Srl",
-    author_email="info@immaginet.com",
+    author="Andrea Piani",
+    author_email="andreapiani.dev@gmail.com",
     packages=find_packages(),
     install_requires=[
         "pandas>=2.0.0",
