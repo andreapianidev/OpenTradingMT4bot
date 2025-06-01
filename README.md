@@ -112,24 +112,49 @@ OpenMT4TradingBot implements a sophisticated multi-factor trading approach desig
 3. Create a directory `Files/OpenMT4TradingBot` in your MT4 data folder
 
 ### Python Setup
-1. Install required packages:
-   ```
-   pip install pandas numpy requests schedule pyarrow
+
+#### Metodo automatico (consigliato)
+1. Esegui lo script di installazione automatico:
+   ```bash
+   # Su Linux/macOS
+   ./install_python.sh
+   
+   # Su Windows (PowerShell)
+   # Prima esegui: Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+   # Poi:
+   python -m pip install -r python/requirements.txt
    ```
 
-2. For optional DeepSeek integration:
+2. Lo script automaticamente:
+   - Verifica che Python sia installato
+   - Offre la possibilità di creare un ambiente virtuale
+   - Installa tutte le dipendenze necessarie
+   - Crea un file `.env` di esempio se non esiste
+
+#### Metodo manuale
+1. Installa le dipendenze richieste:
+   ```bash
+   pip install -r python/requirements.txt
    ```
-   pip install fastapi uvicorn rich
+   
+   Oppure installa i pacchetti singolarmente:
+   ```bash
+   pip install pandas numpy requests schedule pyarrow python-dotenv
    ```
 
-3. Configure the DeepSeek API key:
-   - Create a `.env` file in the project root with your API key:
+2. Per l'interfaccia utente migliorata:
+   ```bash
+   pip install fastapi uvicorn pydantic rich
+   ```
+
+3. Configura la chiave API DeepSeek:
+   - Crea un file `.env` nella directory principale con la tua chiave API:
      ```
      DEEPSEEK_API_KEY=your_api_key_here
      DEEPSEEK_MODEL=deepseek-chat
      DEEPSEEK_API_BASE=https://api.deepseek.com/v1
      ```
-   - Note: The `.env` file is in `.gitignore` to prevent accidental key exposure
+   - Nota: Il file `.env` è incluso in `.gitignore` per evitare l'esposizione accidentale della chiave
 
 ## Usage
 
@@ -146,48 +171,58 @@ OpenMT4TradingBot implements a sophisticated multi-factor trading approach desig
    - FilePath: Path for file operations
 
 ### Starting the Python Engine
-1. Navigate to the python directory:
-   ```
-   cd python
-   ```
-
-2. Run the signal engine:
-   ```
-   python signal_engine.py
+1. Naviga alla directory principale del progetto:
+   ```bash
+   cd /path/to/OpenMT4TradingBot
    ```
 
-3. Optional flags:
-   ```
-   --mt4-path PATH     Path to MT4 Files directory
-   --data-path PATH    Path to data directory
-   --backtest          Run backtest
-   --update-cot        Update COT data and exit
-   --use-deepseek      Enable DeepSeek integration
+2. Avvia il motore di segnali:
+   ```bash
+   python3 python/signal_engine.py
    ```
 
-### Using the Chat Interface
+3. Opzioni disponibili:
+   ```
+   --mt4-path PATH     Percorso alla directory MT4 Files
+   --data-path PATH    Percorso alla directory dei dati
+   --backtest          Esegui backtest
+   --update-cot        Aggiorna i dati COT ed esci
+   --use-deepseek      Abilita l'integrazione con DeepSeek
+   ```
 
-#### Web Server
-1. Start the web server:
-   ```
-   python chat_interface.py --server --port 8000
+### Utilizzo dell'interfaccia chat
+
+#### Server Web
+1. Avvia il server web:
+   ```bash
+   python3 python/chat_interface.py --server --port 8000
    ```
 
-2. Access the API:
-   ```
+2. Accedi all'API tramite browser:
+   - Apri `http://localhost:8000` nel tuo browser
+
+3. Oppure usa l'API REST:
+   ```bash
    curl -X POST http://localhost:8000/ask -H "Content-Type: application/json" -d '{"question":"What is the current bias on Gold?"}'
    ```
 
-#### CLI Interface
-1. Ask a question directly:
-   ```
-   python chat_interface.py "Why did the bot close the long position on WTI?"
+#### Interfaccia a Linea di Comando (CLI)
+1. Fai una domanda direttamente:
+   ```bash
+   python3 python/chat_interface.py "Perché il bot ha chiuso la posizione long su WTI?"
    ```
 
-2. Interactive mode:
+2. Modalità interattiva:
+   ```bash
+   python3 python/chat_interface.py
    ```
-   python chat_interface.py
-   ```
+
+3. Comandi speciali disponibili nell'interfaccia:
+   - `/analyze [simbolo]` - Analizza i fattori di mercato
+   - `/patterns [simbolo]` - Identifica pattern tecnici
+   - `/news [simbolo]` - Mostra le ultime notizie
+   - `/optimize` - Ottimizza il portafoglio
+   - `/scenarios` - Analisi scenari di mercato
 
 ## File Structure
 
@@ -198,7 +233,15 @@ OpenMT4TradingBot implements a sophisticated multi-factor trading approach desig
   ├─ python/
   │   ├─ signal_engine.py
   │   ├─ deepseek_utils.py
-  │   └─ chat_interface.py
+  │   ├─ chat_interface.py
+  │   ├─ requirements.txt
+  │   └─ setup.py
+  ├─ data/
+  │   ├─ cot.csv
+  │   └─ season.json
+  ├─ install_python.sh
+  ├─ .env
+  └─ README.md
   ├─ data/
   │   ├─ cot.csv
   │   └─ season.json
