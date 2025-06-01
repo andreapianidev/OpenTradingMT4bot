@@ -170,7 +170,32 @@ OpenMT4TradingBot implements a sophisticated multi-factor trading approach desig
    - ExportOHLC: Enable/disable OHLC data export
    - FilePath: Path for file operations
 
-### Starting the Python Engine
+### Avvio Semplificato (Raccomandato)
+
+Utilizza lo script interattivo di controllo per avviare tutti i componenti Python con un'interfaccia user-friendly:
+
+1. Avvia lo script di controllo:
+   ```bash
+   ./start_trading_bot.sh
+   ```
+
+2. Utilizza il menu interattivo per:
+   - Avviare/arrestare tutti i servizi con un click
+   - Avviare selettivamente il motore dei segnali, l'interfaccia chat o il server web
+   - Generare grafici interattivi per le commodity
+   - Controllare lo stato dei servizi
+   - Visualizzare i log dei vari componenti
+
+   ![Menu Interattivo](https://example.com/screenshots/menu.png)
+
+3. Funzionalità principali:
+   - **Avvio Automatizzato**: Gestisce l'ambiente virtuale e le dipendenze
+   - **Monitoraggio Servizi**: Visualizza lo stato di tutti i componenti Python
+   - **Generazione Grafici**: Interfaccia guidata per creare grafici interattivi
+   - **Gestione Log**: Accesso facile ai log di tutti i componenti
+
+### Avvio Manuale dei Componenti
+
 1. Naviga alla directory principale del progetto:
    ```bash
    cd /path/to/OpenMT4TradingBot
@@ -223,6 +248,7 @@ OpenMT4TradingBot implements a sophisticated multi-factor trading approach desig
    - `/analyze [simbolo]` - Analizza i fattori di mercato
    - `/patterns [simbolo]` - Identifica pattern tecnici
    - `/news [simbolo]` - Mostra le ultime notizie
+   - `/chart [simbolo] [periodo] [intervallo]` - Genera un grafico interattivo (es. `/chart XAUUSD 1y 1d`)
    - `/optimize` - Ottimizza il portafoglio
    - `/scenarios` - Analisi scenari di mercato
 
@@ -236,17 +262,18 @@ OpenMT4TradingBot implements a sophisticated multi-factor trading approach desig
   │   ├─ signal_engine.py
   │   ├─ deepseek_utils.py
   │   ├─ chat_interface.py
+  │   ├─ charting_utils.py
   │   ├─ requirements.txt
   │   └─ setup.py
   ├─ data/
   │   ├─ cot.csv
   │   └─ season.json
+  ├─ logs/
+  │   ├─ signal_engine.log
+  │   ├─ chat_interface.log
+  │   └─ web_interface.log
   ├─ install_python.sh
-  ├─ .env
-  └─ README.md
-  ├─ data/
-  │   ├─ cot.csv
-  │   └─ season.json
+  ├─ start_trading_bot.sh
   ├─ .env
   ├─ .gitignore
   └─ README.md
@@ -326,6 +353,30 @@ Run the built-in backtest function:
 python signal_engine.py --backtest
 ```
 
+## Nuove Funzionalità
+
+### Grafici Interattivi per Commodity
+
+Abbiamo integrato la visualizzazione di grafici interattivi per le commodity supportate:
+
+- **Candlestick Charts**: Visualizzazione professionale dei dati OHLC
+- **Indicatore di Volume**: Analisi del volume di trading integrata
+- **Interattività**: Zoom, pan, e hover per analisi dettagliata
+- **Timeframes Flessibili**: Da intraday a dati pluriennali
+- **Accesso Multi-Piattaforma**:
+  - Tramite interfaccia chat (`/chart XAUUSD 1y 1d`)
+  - Attraverso il menu interattivo di `start_trading_bot.sh`
+  - Direttamente tramite `charting_utils.py`
+
+### Interfaccia di Controllo Centralizzata
+
+Il nuovo script `start_trading_bot.sh` fornisce un pannello di controllo unificato:
+
+- **Menu Interattivo**: Semplice da usare anche per utenti non tecnici
+- **Monitoraggio in Tempo Reale**: Visualizzazione dello stato di tutti i servizi
+- **Gestione Log Centralizzata**: Accesso immediato ai log di tutti i componenti
+- **Generazione Guidata dei Grafici**: Procedura guidata per generare grafici interattivi
+
 ## TODO and Future Improvements
 
 - Add more sophisticated COT analysis
@@ -336,6 +387,8 @@ python signal_engine.py --backtest
 - Add unit tests for all components
 - Implement distributed cache for multi-instance deployments
 - Add cache metrics dashboard for performance monitoring
+- Enhance charting with technical indicators overlay
+- Create a native desktop GUI using PyQt or similar
 
 ## License
 
