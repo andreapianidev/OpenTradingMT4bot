@@ -1,6 +1,6 @@
 # OpenMT4TradingBot
 
-A hybrid MT4 + Python trading bot for commodities markets with DeepSeek AI integration.
+A hybrid MT4 + Python trading bot for commodities markets with DeepSeek AI integration. React Native Web Interface
 
 ## Overview
 
@@ -119,10 +119,9 @@ OpenMT4TradingBot implements a sophisticated multi-factor trading approach desig
    # Su Linux/macOS
    ./install_python.sh
    
-   # Su Windows (PowerShell)
+   # Su Windows
    # Prima esegui: Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-   # Poi:
-   python -m pip install -r python/requirements.txt
+   .\install_python.sh
    ```
 
 2. Lo script automaticamente:
@@ -132,18 +131,16 @@ OpenMT4TradingBot implements a sophisticated multi-factor trading approach desig
    - Crea un file `.env` di esempio se non esiste
 
 #### Metodo manuale
-1. Installa le dipendenze richieste:
+1. Crea un ambiente virtuale Python e attivalo:
    ```bash
-   pip install -r python/requirements.txt
-   ```
-   
-   Oppure installa i pacchetti singolarmente:
-   ```bash
-   pip install pandas numpy requests schedule pyarrow python-dotenv gzip
+   python -m venv venv
+   source venv/bin/activate  # Linux/macOS
+   venv\Scripts\activate     # Windows
    ```
 
-2. Per l'interfaccia utente migliorata:
+2. Installa le dipendenze:
    ```bash
+   pip install -r requirements.txt
    pip install fastapi uvicorn pydantic rich
    ```
 
@@ -355,6 +352,23 @@ python signal_engine.py --backtest
 
 ## Nuove Funzionalità
 
+### Dashboard React Moderna
+
+Abbiamo implementato una dashboard web moderna basata su React per monitorare e controllare il trading bot in tempo reale:
+
+- **Interfaccia Responsive**: Design moderno che si adatta a dispositivi desktop e mobile
+- **Grafici Interattivi**: Visualizzazione professionale di candlestick OHLC con indicatori Donchian
+- **Monitoraggio API DeepSeek**: Visualizzazione in tempo reale dell'utilizzo e del throttling dell'API
+- **Panoramica Mercati**: Stato attivo/inattivo di tutti i mercati supportati con filtri e segnali
+- **Tabella Segnali**: Visualizzazione dettagliata dei segnali di trading con filtri e ordinamento
+- **Controlli Bot**: Interfaccia per avviare/fermare il bot e configurare limiti di costo e soglie di throttling
+
+Per avviare la dashboard, utilizzare il nuovo script `start_dashboard.sh`:
+
+```bash
+./start_dashboard.sh
+```
+
 ### Grafici Interattivi per Commodity
 
 Abbiamo integrato la visualizzazione di grafici interattivi per le commodity supportate:
@@ -367,6 +381,7 @@ Abbiamo integrato la visualizzazione di grafici interattivi per le commodity sup
   - Tramite interfaccia chat (`/chart XAUUSD 1y 1d`)
   - Attraverso il menu interattivo di `start_trading_bot.sh`
   - Direttamente tramite `charting_utils.py`
+  - Nella nuova dashboard React (`start_dashboard.sh`)
 
 ### Interfaccia di Controllo Centralizzata
 
@@ -381,7 +396,6 @@ Il nuovo script `start_trading_bot.sh` fornisce un pannello di controllo unifica
 
 - Add more sophisticated COT analysis
 - Implement machine learning for adaptive parameters
-- Create a web dashboard for monitoring
 - Add portfolio-level risk management
 - Support for more trading instruments
 - Add unit tests for all components
@@ -389,6 +403,8 @@ Il nuovo script `start_trading_bot.sh` fornisce un pannello di controllo unifica
 - Add cache metrics dashboard for performance monitoring
 - Enhance charting with technical indicators overlay
 - Create a native desktop GUI using PyQt or similar
+- Add WebSocket per aggiornamenti in tempo reale nella dashboard
+- Aggiungere autenticazione e sicurezza per l'accesso alla dashboard
 
 ## License
 

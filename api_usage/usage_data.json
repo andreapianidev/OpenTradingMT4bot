@@ -1,0 +1,20 @@
+{
+  "days": {
+    "2025-06-01": {
+      "total_tokens": 0,
+      "estimated_cost": 0.0,
+      "requests_count": 0,
+      "by_type": {}
+    }
+  },
+  "current_month": {
+    "total_tokens": 0,
+    "estimated_cost": 0.0,
+    "requests_count": 0
+  },
+  "throttling": {
+    "current_level": "normal",
+    "last_updated": "2025-06-01T12:39:38.197782"
+  },
+  "last_request_time": "2025-06-01T12:39:38.197784"
+}
