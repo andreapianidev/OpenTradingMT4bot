@@ -1,100 +1,100 @@
 # OpenMT4TradingBot
 
-A hybrid MT4 + Python trading bot for commodities markets with DeepSeek AI integration. React Native Web Interface
+Un bot di trading ibrido MT4 + Python per i mercati delle commodity con integrazione dell'AI DeepSeek. Interfaccia Web React Native
 
-## Overview
+## Panoramica
 
-OpenMT4TradingBot is an open-source trading system that combines MetaTrader 4 (MT4) with Python to create a powerful commodities trading solution. The bot uses a Donchian breakout strategy with COT (Commitment of Traders) and seasonality filters to generate trading signals across multiple commodity markets.
+OpenMT4TradingBot è un sistema di trading open-source che combina MetaTrader 4 (MT4) con Python per creare una potente soluzione di trading per i mercati delle commodity. Il bot utilizza una strategia di breakout Donchian con filtri COT (Commitment of Traders) e stagionali per generare segnali di trading su diversi mercati delle commodity.
 
-The system is divided into two main components:
-1. **MT4 Expert Advisor**: Handles trade execution, stop-loss/take-profit management, and data export
-2. **Python Signal Engine**: Calculates trading signals, applies filters, and communicates with the EA via a file-based bridge
+Il sistema è diviso in due componenti principali:
+1. **Expert Advisor MT4**: Gestisce l'esecuzione degli ordini, la gestione dello stop-loss/take-profit e l'esportazione dei dati
+2. **Motore di Segnali Python**: Calcola i segnali di trading, applica i filtri e comunica con l'EA tramite un ponte basato su file
 
-## Trading Strategy
+## Strategia di Trading
 
-OpenMT4TradingBot implements a sophisticated multi-factor trading approach designed specifically for commodities markets:
+OpenMT4TradingBot implementa un sofisticato approccio di trading multi-fattore progettato specificamente per i mercati delle commodity:
 
-1. **Core Strategy - Donchian Breakout**: The system uses 40-bar Donchian channels on the D1 timeframe to identify significant price breakouts. This approach capitalizes on the tendency of commodities to experience sustained trends following range breakouts.
+1. **Strategia Core - Breakout Donchian**: Il sistema utilizza canali Donchian da 40 barre sul timeframe D1 per identificare significativi breakout di prezzo. Questo approccio sfrutta la tendenza delle commodity a sviluppare trend sostenuti dopo i breakout di range.
 
-2. **Smart Filters**:
-   - **COT Filter**: Analyzes CFTC's Commitment of Traders data to assess market positioning by different trader types (commercial hedgers, large speculators, small traders). This provides crucial insight into institutional sentiment and helps avoid trading against dominant market forces.
-   - **Seasonality Filter**: Commodities often exhibit seasonal patterns due to production cycles, weather, and consumption patterns. The bot leverages historical seasonal tendencies to optimize entry timing and position sizing.
+2. **Filtri Intelligenti**:
+   - **Filtro COT**: Analizza i dati del Commitment of Traders della CFTC per valutare il posizionamento di mercato dei diversi tipi di trader (hedger commerciali, grandi speculatori, piccoli trader). Questo fornisce informazioni cruciali sul sentiment istituzionale e aiuta a evitare di operare contro le forze dominanti del mercato.
+   - **Filtro Stagionale**: Le commodity spesso mostrano pattern stagionali dovuti a cicli di produzione, condizioni meteorologiche e pattern di consumo. Il bot sfrutta le tendenze stagionali storiche per ottimizzare il timing di entrata e il dimensionamento delle posizioni.
 
-3. **Advanced Risk Management**:
-   - **Adaptive Stop-Loss**: Uses Average True Range (ATR) to set stop-loss levels that adapt to current market volatility
-   - **Intelligent Take-Profit**: Sets profit targets based on historical volatility and support/resistance levels
-   - **Dynamic Trailing Stop**: Protects profits while allowing trends to develop fully
-   - **Volatility-Based Position Sizing**: Adjusts position size based on ATR to maintain consistent risk across different commodities
+3. **Gestione Avanzata del Rischio**:
+   - **Stop-Loss Adattivo**: Utilizza l'Average True Range (ATR) per impostare livelli di stop-loss che si adattano alla volatilità corrente del mercato
+   - **Take-Profit Intelligente**: Imposta obiettivi di profitto basati sulla volatilità storica e sui livelli di supporto/resistenza
+   - **Trailing Stop Dinamico**: Protegge i profitti permettendo allo stesso tempo ai trend di svilupparsi completamente
+   - **Dimensionamento delle Posizioni basato sulla Volatilità**: Regola la dimensione della posizione in base all'ATR per mantenere un rischio costante su diverse commodity
 
-4. **DeepSeek AI Enhancement**:
-   - **Market Sentiment Analysis**: Evaluates news and market narratives to identify sentiment shifts
-   - **Multi-Factor Market Analysis**: Combines technical, fundamental, and sentiment data
-   - **Technical Pattern Recognition**: Identifies complex chart patterns that complement breakout signals
-   - **Portfolio Optimization**: Suggests optimal allocation across multiple commodities
-   - **Scenario Analysis**: Stress-tests strategies under different market conditions
+4. **Potenziamento con DeepSeek AI**:
+   - **Analisi del Sentimento di Mercato**: Valuta notizie e narrative di mercato per identificare cambiamenti nel sentimento
+   - **Analisi di Mercato Multi-Fattoriale**: Combina dati tecnici, fondamentali e di sentimento
+   - **Riconoscimento di Pattern Tecnici**: Identifica pattern grafici complessi che complementano i segnali di breakout
+   - **Ottimizzazione del Portafoglio**: Suggerisce un'allocazione ottimale tra diverse commodity
+   - **Analisi di Scenario**: Stress-test delle strategie in diverse condizioni di mercato
 
 ## Why This Bot Is Valuable
 
-- **Hybrid Architecture**: Combines MT4's reliable execution with Python's advanced analytics capabilities
-- **Commodities Focus**: Specially designed for the unique characteristics of commodities markets
-- **Multi-Factor Approach**: Integrates price action, market structure, sentiment, and seasonality
-- **Intelligent Risk Management**: Adapts to changing market conditions with sophisticated risk controls
-- **AI-Enhanced Decision Making**: Leverages DeepSeek AI for deeper market insights beyond traditional indicators
-- **Conversation Interface**: Natural language interaction for traders to query the system about markets and strategy
-- **Extensible Design**: Easy to customize and expand with additional strategies or commodities
-- **Open Source**: Transparent implementation that can be audited and modified
+- **Architettura ibrida**: Combina l'esecuzione affidabile di MT4 con le capacità analitiche avanzate di Python
+- **Focalizzazione sulle commodity**: Progettato specificamente per le caratteristiche uniche dei mercati delle commodity
+- **Approccio multi-fattore**: Integra azione di prezzo, struttura del mercato, sentimento e stagionalità
+- **Gestione del rischio intelligente**: Si adatta alle condizioni di mercato in evoluzione con controlli di rischio sofisticati
+- **Decisioni potenziate dall'AI**: Sfrutta DeepSeek AI per insights di mercato più profondi oltre gli indicatori tradizionali
+- **Interfaccia conversazionale**: Interazione in linguaggio naturale per i trader per interrogare il sistema su mercati e strategia
+- **Design estendibile**: Facile da personalizzare ed espandere con strategie o commodity aggiuntive
+- **Open Source**: Implementazione trasparente che può essere verificata e modificata
 
-## Features
+## Funzionalità
 
-- **Donchian Breakout Strategy**: Uses 40-bar Donchian channels on D1 timeframe
-- **COT Filter**: Analyzes Commitment of Traders data for smart trade entries
-- **Seasonal Filter**: Applies seasonality patterns to optimize position sizing
-- **Risk Management**: ATR-based stop-loss, take-profit, and trailing stop
-- **Volatility Parity**: Risk-adjusted position sizing based on ATR
-- **DeepSeek AI Integration**: Sentiment analysis and natural language Q&A interface
-- **File-Based Bridge**: Simple and reliable communication between MT4 and Python
+- **Strategia di Breakout Donchian**: Utilizza canali Donchian da 40 barre sul timeframe D1
+- **Filtro COT**: Analizza i dati del Commitment of Traders per ingressi di trading intelligenti
+- **Filtro Stagionale**: Applica pattern di stagionalità per ottimizzare il dimensionamento delle posizioni
+- **Gestione del Rischio**: Stop-loss, take-profit e trailing stop basati su ATR
+- **Parità di Volatilità**: Dimensionamento delle posizioni basato sulla volatilità ATR
+- **Integrazione DeepSeek AI**: Analisi del sentimento e interfaccia Q&A in linguaggio naturale
+- **Bridge basato su file**: Comunicazione semplice e affidabile tra MT4 e Python
 
-## Supported Symbols
+## Simboli Supportati
 
-### Precious Metals
-- Gold (XAUUSD)
-- Silver (XAGUSD)
-- Platinum (XPTUSD)
-- Palladium (XPDUSD)
+### Metalli Preziosi
+- Oro (XAUUSD)
+- Argento (XAGUSD)
+- Platino (XPTUSD)
+- Palladio (XPDUSD)
 
-### Energy
-- WTI Crude Oil (WTICOUSD)
-- Brent Crude Oil (BCOUSD)
-- Natural Gas (NATGASUSD)
-- Heating Oil (HOIL)
-- Gasoline RBOB (RBOB)
+### Energia
+- Petrolio Greggio WTI (WTICOUSD)
+- Petrolio Greggio Brent (BCOUSD)
+- Gas Naturale (NATGASUSD)
+- Olio da Riscaldamento (HOIL)
+- Benzina RBOB (RBOB)
 
-### Agricultural
-- Corn (CORNUSD)
-- Soybeans (SOYBNUSD)
-- Wheat (WHEATUSD)
-- Coffee (COFFEE)
-- Cotton (COTTON)
-- Sugar (SUGAR)
-- Cocoa (COCOA)
-- Orange Juice (OJ)
+### Agricoli
+- Mais (CORNUSD)
+- Soia (SOYBNUSD)
+- Grano (WHEATUSD)
+- Caffè (COFFEE)
+- Cotone (COTTON)
+- Zucchero (SUGAR)
+- Cacao (COCOA)
+- Succo d'Arancia (OJ)
 
-### Base Metals
-- Copper (XCUUSD)
-- Aluminum (XALUSD)
-- Nickel (XNIUSD)
-- Zinc (XZNUSD)
-- Lead (XPBUSD)
+### Metalli Base
+- Rame (XCUUSD)
+- Alluminio (XALUSD)
+- Nichel (XNIUSD)
+- Zinco (XZNUSD)
+- Piombo (XPBUSD)
 
-## Requirements
+## Requisiti
 
 ### MetaTrader 4
-- MT4 Platform (build 1320 or higher)
-- MQL4 compiler
+- Piattaforma MT4 (build 1320 o superiore)
+- Compilatore MQL4
 
 ### Python
-- Python 3.8 or higher
-- Required packages:
+- Python 3.8 o superiore
+- Pacchetti richiesti:
   - pandas
   - numpy
   - requests
@@ -153,19 +153,19 @@ OpenMT4TradingBot implements a sophisticated multi-factor trading approach desig
      ```
    - Nota: Il file `.env` è incluso in `.gitignore` per evitare l'esposizione accidentale della chiave
 
-## Usage
+## Utilizzo
 
-### Starting the EA
-1. Load the EA on a chart for one of the supported symbols
-2. Configure the parameters:
-   - BridgeMode: "FILE" (default file-based bridge)
-   - RiskPercent: Risk percentage per trade (default 1%)
-   - Lots: Fixed lot size (0 = auto calculation)
-   - MagicNumber: Unique identifier for trades
-   - UseTrailingStop: Enable/disable trailing stop
-   - SignalCheckSeconds: Frequency of signal checks
-   - ExportOHLC: Enable/disable OHLC data export
-   - FilePath: Path for file operations
+### Avvio dell'EA
+1. Carica l'EA su un grafico per uno dei simboli supportati
+2. Configura i parametri:
+   - BridgeMode: "FILE" (ponte predefinito basato su file)
+   - RiskPercent: Percentuale di rischio per operazione (predefinito 1%)
+   - Lots: Dimensione del lotto fissa (0 = calcolo automatico)
+   - MagicNumber: Identificatore univoco per le operazioni
+   - UseTrailingStop: Abilita/disabilita trailing stop
+   - SignalCheckSeconds: Frequenza di controllo dei segnali
+   - ExportOHLC: Abilita/disabilita esportazione dati OHLC
+   - FilePath: Percorso per le operazioni sui file
 
 ### Avvio Semplificato (Raccomandato)
 
@@ -299,46 +299,46 @@ Utilizza lo script interattivo di controllo per avviare tutti i componenti Pytho
   └─ README.md                # Documentazione del progetto
 ```
 
-## Strategy Details
+## Dettagli della Strategia
 
-### Entry Rules
-- **Long Entry**: Close of yesterday equals highest high of last 40 bars
-- **Short Entry**: Close of yesterday equals lowest low of last 40 bars
+### Regole di Entrata
+- **Entrata Long**: Chiusura di ieri uguale al massimo più alto degli ultimi 40 bar
+- **Entrata Short**: Chiusura di ieri uguale al minimo più basso degli ultimi 40 bar
 
-### Filters
-- **COT Filter**:
-  - Long only if Commercial net position ≤ -1σ below 3-year average
-  - Short only if Commercial net position ≥ +1σ above 3-year average
+### Filtri
+- **Filtro COT**:
+  - Long solo se la posizione netta commerciale ≤ -1σ sotto la media di 3 anni
+  - Short solo se la posizione netta commerciale ≥ +1σ sopra la media di 3 anni
 
-- **Seasonal Filter**:
-  - Normal position sizing if trade direction matches seasonal bias
-  - Half position sizing if trade direction contradicts seasonal bias
+- **Filtro Stagionale**:
+  - Dimensionamento normale delle posizioni se la direzione dell'operazione corrisponde al bias stagionale
+  - Dimensionamento dimezzato delle posizioni se la direzione dell'operazione contraddice il bias stagionale
 
-### Exit Rules
-- **Stop Loss**: 1.5 × ATR(20)
-- **Take Profit**: 3.0 × ATR(20)
-- **Trailing Stop**: Updates when price moves ≥ 1 ATR in favor
+### Regole di Uscita
+- **Stop Loss**: 1,5 × ATR(20)
+- **Take Profit**: 3,0 × ATR(20)
+- **Trailing Stop**: Si aggiorna quando il prezzo si muove ≥ 1 ATR a favore
 
-## DeepSeek AI Integration
+## Integrazione con DeepSeek AI
 
-The system includes AI-powered features through the DeepSeek API:
+Il sistema include funzionalità potenziate dall'intelligenza artificiale attraverso l'API DeepSeek:
 
-### News Sentiment Analysis
-- Analyzes news headlines for trading bias
-- Can adjust position sizing or skip trades based on sentiment
-- Cached responses to minimize API usage
+### Analisi del Sentimento delle Notizie
+- Analizza i titoli delle notizie per determinare il bias di trading
+- Può regolare il dimensionamento delle posizioni o saltare operazioni in base al sentimento
+- Risposte memorizzate nella cache per minimizzare l'utilizzo dell'API
 
-### Natural Language Q&A
-- Query your trading system in plain language
-- Example questions:
-  - "Why did the bot enter a long position on gold?"
-  - "What is the current COT data for silver?"
-  - "How is my portfolio performing this month?"
+### Domande e Risposte in Linguaggio Naturale
+- Interroga il tuo sistema di trading in linguaggio comune
+- Esempi di domande:
+  - "Perché il bot ha aperto una posizione long sull'oro?"
+  - "Quali sono i dati COT attuali per l'argento?"
+  - "Come sta andando il mio portafoglio questo mese?"
 
-### API Key Security
-- Store your DeepSeek API key in the `.env` file
-- This file is excluded from Git to prevent accidental exposure
-- Token usage is optimized with advanced caching system
+### Sicurezza della Chiave API
+- Memorizza la tua chiave API DeepSeek nel file `.env`
+- Questo file è escluso da Git per prevenire l'esposizione accidentale
+- L'utilizzo del token è ottimizzato con un sistema di cache avanzato
 
 ### Ottimizzazioni Cache
 - **Sistema di cache a due livelli**: Memoria (LRU) + Disco (JSON compresso)
@@ -360,15 +360,15 @@ The system includes AI-powered features through the DeepSeek API:
 ## Testing
 
 ### MT4 Strategy Tester
-1. Open MT4 Strategy Tester
-2. Select the EA
-3. Configure settings:
-   - Model: "Open prices only" or "Every tick"
-   - Use date range covering multiple seasonal cycles
-   - Visual mode for detailed analysis
+1. Apri MT4 Strategy Tester
+2. Seleziona l'EA
+3. Configura le impostazioni:
+   - Modello: "Solo prezzi di apertura" o "Ogni tick"
+   - Usa intervallo di date che copra diversi cicli stagionali
+   - Modalità visuale per analisi dettagliata
 
 ### Python Backtest
-Run the built-in backtest function:
+Esegui la funzione di backtest integrata:
 ```
 python signal_engine.py --backtest
 ```
@@ -415,40 +415,40 @@ Il nuovo script `start_trading_bot.sh` fornisce un pannello di controllo unifica
 - **Gestione Log Centralizzata**: Accesso immediato ai log di tutti i componenti
 - **Generazione Guidata dei Grafici**: Procedura guidata per generare grafici interattivi
 
-## TODO and Future Improvements
+## TODO e Miglioramenti Futuri
 
-- Add more sophisticated COT analysis
-- Implement machine learning for adaptive parameters
-- Add portfolio-level risk management
-- Support for more trading instruments
-- Add unit tests for all components
-- Implement distributed cache for multi-instance deployments
-- Add cache metrics dashboard for performance monitoring
-- Enhance charting with technical indicators overlay
-- Create a native desktop GUI using PyQt or similar
-- Add WebSocket per aggiornamenti in tempo reale nella dashboard
+- Aggiungere analisi COT più sofisticate
+- Implementare machine learning per parametri adattivi
+- Aggiungere gestione del rischio a livello di portafoglio
+- Supporto per più strumenti di trading
+- Aggiungere test unitari per tutti i componenti
+- Implementare cache distribuita per deployment multi-istanza
+- Aggiungere dashboard di metriche cache per monitoraggio delle prestazioni
+- Migliorare i grafici con overlay di indicatori tecnici
+- Creare una GUI desktop nativa utilizzando PyQt o simili
+- Aggiungere WebSocket per aggiornamenti in tempo reale nella dashboard
 - Aggiungere autenticazione e sicurezza per l'accesso alla dashboard
 
-## License
+## Licenza
 
-MIT License
+Licenza MIT
 
 Copyright (c) 2025 Immaginet Srl
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+È concessa, gratuitamente, a chiunque ottenga una copia
+di questo software e dei file di documentazione associati (il "Software"), l'autorizzazione
+a utilizzare il Software senza restrizioni, inclusi, senza limitazione, i diritti
+di utilizzare, copiare, modificare, unire, pubblicare, distribuire, concedere in sublicenza e/o vendere
+copie del Software, e di permettere alle persone a cui il Software è
+fornito di farlo, alle seguenti condizioni:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+L'avviso di copyright sopra indicato e questo avviso di autorizzazione devono essere inclusi in tutte
+le copie o parti sostanziali del Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+IL SOFTWARE VIENE FORNITO "COSÌ COM'È", SENZA GARANZIA DI ALCUN TIPO, ESPRESSA O
+IMPLICITA, INCLUSE, MA NON SOLO, LE GARANZIE DI COMMERCIABILITÀ,
+IDONEITÀ PER UN PARTICOLARE SCOPO E NON VIOLAZIONE. IN NESSUN CASO GLI
+AUTORI O I TITOLARI DEL COPYRIGHT SARANNO RESPONSABILI PER QUALSIASI RECLAMO, DANNO O ALTRA
+RESPONSABILITÀ, SIA IN UN'AZIONE DI CONTRATTO, TORTO O ALTRIMENTI, DERIVANTE DA,
+FUORI O IN CONNESSIONE CON IL SOFTWARE O L'USO O ALTRE OPERAZIONI NEL
 SOFTWARE.
