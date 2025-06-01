@@ -27,6 +27,9 @@ from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 
+# Importa il tracker di utilizzo API
+import api_usage_tracker as usage_tracker
+
 # Importa il gestore delle chiavi di cache
 from cache_key_manager import CacheKeyManager
 
@@ -81,6 +84,10 @@ MODEL = os.environ.get("DEEPSEEK_MODEL", DEFAULT_MODEL)
 
 # Configura il logger anche per il cache key manager
 logging.getLogger('cache_key_manager').setLevel(logging.INFO)
+
+# Imposta il limite di costo giornaliero (configurable tramite .env)
+DAILY_COST_LIMIT = float(os.environ.get("DEEPSEEK_DAILY_LIMIT", "5.0"))  # Default $5/giorno
+usage_tracker.set_daily_cost_limit(DAILY_COST_LIMIT)
 
 def _get_cache_path(cache_key: str, cache_type: str = "default") -> Path:
     """Get cache file path for a given key and type.
@@ -183,12 +190,13 @@ def _clean_cache():
         except Exception as e:
             logger.warning(f"Cache cleanup failed: {e}")
 
-def _get_from_cache(cache_key: str, cache_type: str = "default") -> Optional[Any]:
+def _get_from_cache(cache_key: str, cache_type: str = "default", extended_ttl: bool = False) -> Optional[Any]:
     """Retrieve data from cache if it exists and is not expired.
     
     Args:
         cache_key: The unique key for the cached data
         cache_type: Type of cached data (affects TTL)
+        extended_ttl: If True, accept cache entries with longer TTL for throttling scenarios
         
     Returns:
         The cached data if found and valid, None otherwise
@@ -202,6 +210,10 @@ def _get_from_cache(cache_key: str, cache_type: str = "default") -> Optional[Any
         cache_entry = MEMORY_CACHE[memory_key]
         # Check if in-memory cache has expired
         ttl = CACHE_TTL.get(cache_type, CACHE_TTL["default"])
+        # Use extended TTL if requested (for throttling)
+        if extended_ttl:
+            ttl *= 2  # Double the TTL for throttling
+            
         if time.time() - cache_entry['timestamp'] <= ttl:
             logger.debug(f"Memory cache hit for {cache_type}:{normalized_key}")
             return cache_entry['data']
@@ -215,17 +227,17 @@ def _get_from_cache(cache_key: str, cache_type: str = "default") -> Optional[Any
     
     if not cache_path.exists():
         return None
-        
+    
+    # Check TTL based on cache type
+    if not _is_cache_valid(cache_path, cache_type, extended_ttl):
+        logger.debug(f"Disk cache expired for {cache_type}:{cache_key}")
+        return None
+    
     try:
         # Read compressed data and decompress
         with gzip.open(cache_path, 'rt', encoding='utf-8') as f:
             cached_data = json.load(f)
             
-        # Check if cache has expired
-        ttl = CACHE_TTL.get(cache_type, CACHE_TTL["default"])
-        if time.time() - cached_data['timestamp'] > ttl:
-            # Remove expired file
-            cache_path.unlink(missing_ok=True)
             return None
         
         # Update memory cache
@@ -245,6 +257,29 @@ def _get_from_cache(cache_key: str, cache_type: str = "default") -> Optional[Any
         logger.warning(f"Failed to read from cache: {e}")
         return None
 
+
+def _is_cache_valid(cache_path: Path, cache_type: str, extended_ttl: bool = False) -> bool:
+    """Check if a cache file is valid based on its age and type.
+    
+    Args:
+        cache_path: Path to the cache file
+        cache_type: Type of cache (affects TTL)
+        extended_ttl: If True, use a longer TTL for throttling scenarios
+        
+    Returns:
+        True if the cache is valid, False otherwise
+    """
+    # Get the cache TTL based on type
+    ttl = CACHE_TTL.get(cache_type, CACHE_TTL["default"])
+    
+    # Use an extended TTL for throttling scenarios if requested
+    if extended_ttl:
+        ttl *= 2  # Double the TTL for throttling
+    
+    # Check the cache file's age
+    file_age = time.time() - cache_path.stat().st_mtime
+    
+    return file_age <= ttl
 
 def _save_to_cache(cache_key: str, data: Any, cache_type: str = "default") -> bool:
     """Save data to cache with current timestamp.
@@ -313,9 +348,10 @@ def _save_to_cache(cache_key: str, data: Any, cache_type: str = "default") -> bo
 
 
 def deepseek_chat(messages: List[Dict], model: str = None, temperature: float = 0.7, 
-                 max_tokens: int = 1000, offline: bool = False, cache_type: str = "chat") -> str:
+                 max_tokens: int = 1000, offline: bool = False, cache_type: str = "chat",
+                 market: Optional[str] = None) -> str:
     """
-    Send a chat request to the DeepSeek API.
+    Send a chat request to the DeepSeek API with adaptive throttling.
     
     Args:
         messages: List of message dictionaries in OpenAI format
@@ -325,10 +361,13 @@ def deepseek_chat(messages: List[Dict], model: str = None, temperature: float = 
         max_tokens: Maximum tokens to generate
         offline: If True, return a fallback response without making an API call
         cache_type: Type of cache to use (affects TTL)
+        market: Symbol of the market this request is related to, if applicable
         
     Returns:
         str: Response from the DeepSeek API
     """
+    request_type = cache_type  # Usiamo il tipo di cache come tipo di richiesta
+    
     if offline:
         return "DeepSeek API is in offline mode. This is a fallback response."
         
@@ -354,6 +393,34 @@ def deepseek_chat(messages: List[Dict], model: str = None, temperature: float = 
     if cached_response:
         logger.info(f"Using cached DeepSeek response for {cache_type}")
         return cached_response
+    
+    # Verifica se la richiesta dovrebbe essere eseguita in base alle regole di throttling
+    if not usage_tracker.should_execute_api_call(request_type, market):
+        logger.warning(f"Throttling: Skipping API call for {request_type}" + 
+                      (f" on {market}" if market else ""))
+        
+        # Se è una richiesta di tipo 'chat', genera una risposta personalizzata
+        if cache_type == "chat":
+            throttling_level = usage_tracker.get_throttling_level()
+            usage_report = usage_tracker.get_usage_report()
+            daily_cost = usage_report["daily"]["estimated_cost"]
+            percent = usage_report["daily"]["percent_of_limit"]
+            
+            return (f"I'm currently operating in '{throttling_level}' throttling mode to control API costs. "
+                   f"Daily usage is ${daily_cost:.2f} ({percent:.1f}% of limit). "
+                   f"For non-critical queries, please try again later.")
+        
+        # Per altri tipi di richiesta, usa semplicemente una cache più lunga se possibile
+        # o ritorna una risposta neutra appropriata per il tipo
+        extended_cached_response = _get_from_cache(cache_key, cache_type, extended_ttl=True)
+        if extended_cached_response:
+            logger.info(f"Throttling: Using extended cache for {cache_type}")
+            return extended_cached_response
+            
+        if cache_type == "news_bias":
+            return ("neutral", 0.5)  # Valore neutro per news_bias
+        
+        return "API request throttled to control costs. Using fallback response."
     
     try:
         headers = {
@@ -381,6 +448,15 @@ def deepseek_chat(messages: List[Dict], model: str = None, temperature: float = 
             
         result = response.json()
         content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+        
+        # Stima il conteggio token in ingresso e uscita
+        # Metodo semplice: circa 4 caratteri per token
+        input_token_estimate = sum(len(str(msg.get("content", ""))) // 4 for msg in messages)
+        output_token_estimate = len(content) // 4
+        total_tokens = input_token_estimate + output_token_estimate
+        
+        # Traccia l'utilizzo dell'API
+        usage_tracker.track_api_call(request_type, total_tokens, market)
         
         # Cache the successful response
         _save_to_cache(cache_key, content)
@@ -423,7 +499,22 @@ def news_bias(symbol: str, headlines: List[str], offline: bool = False) -> Tuple
     # Try to get from cache
     cached_result = _get_from_cache(cache_key, "news")
     if cached_result is not None:
+        logger.info(f"Using cached news bias analysis for {symbol}")
         return cached_result
+    
+    # Verifica se la richiesta dovrebbe essere eseguita in base alle regole di throttling
+    if not usage_tracker.should_execute_api_call("news_bias", symbol):
+        logger.warning(f"Throttling: Skipping news_bias API call for {symbol}")
+        
+        # Prova ad utilizzare una cache estesa
+        extended_cached_result = _get_from_cache(cache_key, "news", extended_ttl=True)
+        if extended_cached_result is not None:
+            logger.info(f"Throttling: Using extended cache for news_bias on {symbol}")
+            return extended_cached_result
+        
+        # Se non c'è una cache estesa, restituisci un valore neutro
+        logger.info(f"Throttling: Using neutral fallback for news_bias on {symbol}")
+        return ("neutral", 0.5)  # Valore neutro con confidenza media
     
     try:
         prompt = f"""
@@ -441,7 +532,7 @@ def news_bias(symbol: str, headlines: List[str], offline: bool = False) -> Tuple
             {"role": "user", "content": prompt}
         ]
         
-        response = deepseek_chat(messages, temperature=0.1)
+        response = deepseek_chat(messages, temperature=0.1, market=symbol)
         
         try:
             # Parse the JSON response

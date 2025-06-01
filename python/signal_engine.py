@@ -493,20 +493,79 @@ class SignalEngine:
             
             logger.info(f"Signal exported to {signal_file}")
             return True
+            
         except Exception as e:
             logger.error(f"Error exporting signal: {e}")
             return False
-
-    def process_all_symbols(self) -> None:
+            
+    def process_all_symbols(self):
         """Calculate and export signals for all symbols."""
+        logger.info("Processing all symbols")
         signals = self.calculate_signals()
         
-        # Export each signal
         for symbol, signal in signals.items():
             self.export_signal(signal)
-            # Sleep briefly between signals to avoid file conflicts
-            time.sleep(1)
-
+            
+        # Aggiorna la lista dei mercati attivi per il throttling adattivo
+        if self.use_deepseek:
+            self.update_active_markets_list(signals)
+            
+        return signals
+        
+    def update_active_markets_list(self, signals: Dict):
+        """Aggiorna la lista dei mercati attivi per ottimizzare il throttling API.
+        
+        Args:
+            signals: Dizionario dei segnali generati
+        """
+        try:
+            # Solo se DeepSeek è disponibile (throttling riguarda solo le chiamate API)
+            if not DEEPSEEK_AVAILABLE:
+                return
+                
+            # Importa il modulo di tracciamento API con importazione condizionale
+            try:
+                import api_usage_tracker as usage_tracker
+            except ImportError:
+                logger.warning("api_usage_tracker non disponibile, throttling adattivo disabilitato")
+                return
+                
+            # Identifica i mercati attivi basandosi sui segnali non-neutrali
+            active_markets = []
+            for symbol, signal_data in signals.items():
+                if signal_data.get("signal", "neutral") != "neutral":
+                    active_markets.append(symbol)
+            
+            # Legge anche le posizioni aperte dal file positions.json se esiste
+            positions_file = os.path.join(self.data_path, "positions.json")
+            if os.path.exists(positions_file):
+                try:
+                    with open(positions_file, 'r') as f:
+                        positions_data = json.load(f)
+                        for position in positions_data.get("positions", []):
+                            symbol = position.get("symbol")
+                            if symbol and symbol not in active_markets:
+                                active_markets.append(symbol)
+                except Exception as e:
+                    logger.error(f"Errore nella lettura delle posizioni: {e}")
+            
+            # Aggiorna il tracker con la lista dei mercati attivi
+            if active_markets:
+                logger.info(f"Aggiornamento mercati attivi per throttling: {', '.join(active_markets)}")
+                usage_tracker.update_active_markets(active_markets)
+                
+            # Ottieni e logga lo stato attuale del throttling
+            throttling_level = usage_tracker.get_throttling_level()
+            usage_report = usage_tracker.get_usage_report()
+            daily_cost = usage_report["daily"]["estimated_cost"]
+            percent = usage_report["daily"]["percent_of_limit"]
+            
+            logger.info(f"Stato throttling API: {throttling_level} - Costo giornaliero: ${daily_cost:.2f} ({percent:.1f}% del limite)")
+            
+        except Exception as e:
+            logger.error(f"Errore nell'aggiornamento dei mercati attivi: {e}")
+            # Non bloccare l'elaborazione dei segnali in caso di errore
+            
     def backtest(self) -> None:
         """
         Simple backtest function to validate the strategy.
